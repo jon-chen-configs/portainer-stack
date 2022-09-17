@@ -1,0 +1,80 @@
+services:
+  agent-not-synology:
+    image: portainer/agent:alpine
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/docker/volumes:/var/lib/docker/volumes
+    networks:
+      - agent_network
+    deploy:
+      mode: global
+      placement:
+        constraints: ["node.hostname != ${NAS_HOSTNAME}"]
+        # constraints: [node.platform.os == linux]
+    environment:
+      - AGENT_CLUSTER_ADDR=tasks.agent
+      - LOG_LEVEL=DEBUG
+
+  # Docker (20.10.3) on Synology bug where env vars don't 
+  # set on container.
+  agent:
+    image: portainer/agent:alpine
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /volume1/@docker/volumes:/var/lib/docker/volumes
+    networks:
+      - agent_network
+    deploy:
+      mode: global
+      placement:
+        constraints: ["node.hostname == ${NAS_HOSTNAME}"]
+
+  portainer:
+    image: portainer/portainer-ce:alpine
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          # - node.role == manager
+          - node.hostname == ${NAS_HOSTNAME}
+      restart_policy:
+        condition: on-failure
+      labels:
+        - com.centurylinklabs.watchtower.enable=true
+        - traefik.enable=true
+        - traefik.docker.network=traefik-net
+        - traefik.http.routers.portainer.entrypoints=https
+        - traefik.http.routers.portainer.rule=Host(`portainer.cynicsoft.net`)
+        - traefik.http.routers.portainer.middlewares=internal-whitelist
+        - traefik.http.services.portainer.loadbalancer.server.port=9000
+    # command: -H tcp://tasks.agent:9001 --tlsskipverify
+    command: --tlsskipverify
+    networks:
+      - traefik-net
+      - agent_network
+    ports:
+    #   - "9443:9443"
+      - "9000:9000"
+    #   - "8000:8000"
+    volumes:
+      - /etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    environment:
+      - TZ=${TZ}
+
+
+volumes:
+  portainer_data:
+    driver_opts:
+      type: nfs
+      o: addr=${NAS_HOST},nolock,noresvport,vers=2
+      device: :${DATADIR}/portainer-stack/portainer/data
+
+
+networks:
+  agent_network:
+    driver: overlay
+    attachable: true
+  traefik-net:
+    external: true
