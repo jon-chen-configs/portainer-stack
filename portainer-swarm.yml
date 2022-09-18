@@ -52,6 +52,7 @@ services:
     networks:
       - traefik-net
       - agent_network
+      - default
     ports:
     #   - "9443:9443"
       - "9000:9000"
@@ -63,6 +64,42 @@ services:
     environment:
       - TZ=${TZ}
 
+  portainer-backup-db-job:
+    image: docker-hub.cynicsoft.net/alpine-base:latest
+    env_file: ["${ENV_DIR:-swarm-envs}/swarm/portainer-stack/backup-db-job.env"]
+    deploy:
+      mode: replicated
+      replicas: 0
+      placement:
+        # Docker (20.10.3) on Synology bug where env vars from env_file 
+        # not set on container.
+        # constraints: [node.platform.arch != aarch64]
+        constraints:
+          - node.platform.arch != aarch64
+          - node.hostname != ${NAS_HOSTNAME}
+      restart_policy:
+        condition: none
+      labels:
+        - swarm.cronjob.enable=true
+        - swarm.cronjob.schedule=@daily
+    networks:
+      - healthchecks-swarm_default
+      - default
+    command: >-
+      sh -c 'LOG=/logs/portainer-backup-db-job.log;
+      date > $$LOG &&
+      wget -SO - http://tasks.healthchecks:8000/ping/da0556ba-739f-4f6e-afe0-2393c2537d58/start >> $$LOG 2>&1 &&
+      echo backing up db... >> $$LOG;
+      wget http://tasks.portainer:9000/api/backup --header "X-API-Key:$$PORTAINER_API_TOKEN" --post-data {} --content-disposition >> $$LOG 2>&1 &&
+      mv $$(find . -type f -name "portainer-backup_*" -print0 | xargs -0 ls -t | head -n 1) /backups/data/sqlite &&
+      ls -dt /backups/data/sqlite/* | grep portainer-backup_ | tail -n +3 | xargs rm -f -- >> $$LOG &&
+      echo done. >> $$LOG &&
+      wget -SO - http://tasks.healthchecks:8000/ping/da0556ba-739f-4f6e-afe0-2393c2537d58 >> $$LOG 2>&1'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer-stack_logs:/logs
+      - backups:/backups
+
 
 volumes:
   portainer_data:
@@ -70,6 +107,16 @@ volumes:
       type: nfs
       o: addr=${NAS_HOST},nolock,noresvport,vers=2
       device: :${DATADIR}/portainer-stack/portainer/data
+  portainer-stack_logs:
+    driver_opts:
+      type: nfs
+      o: addr=${NAS_HOST},nolock,noresvport,vers=2
+      device: :${DATADIR}/portainer-stack/logs
+  backups:
+    driver_opts:
+      type: nfs
+      o: addr=${NAS_HOST},nolock,noresvport,vers=2
+      device: :/volume1/docker/backups
 
 
 networks:
@@ -77,4 +124,6 @@ networks:
     driver: overlay
     attachable: true
   traefik-net:
+    external: true
+  healthchecks-swarm_default:
     external: true
