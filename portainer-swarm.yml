@@ -47,6 +47,11 @@ services:
         - traefik.http.routers.portainer.rule=Host(`portainer.cynicsoft.net`)
         - traefik.http.routers.portainer.middlewares=internal-whitelist
         - traefik.http.services.portainer.loadbalancer.server.port=9000
+        - homepage.name=Portainer
+        - homepage.group=Network
+        - homepage.icon=https://raw.githubusercontent.com/modem7/MiscAssets/master/Icons/Dashboard-Icons/portainer.png
+        - homepage.href=https://kavita.cynicsoft.net/
+        - homepage.description=Docker management
     # command: -H tcp://tasks.agent:9001 --tlsskipverify
     command: --tlsskipverify
     networks:
