@@ -21,7 +21,7 @@ services:
     image: portainer/agent:alpine
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /volume1/@docker/volumes:/var/lib/docker/volumes
+      - /volume4/@docker/volumes:/var/lib/docker/volumes
     networks:
       - agent_network
     deploy:
@@ -121,7 +121,7 @@ volumes:
     driver_opts:
       type: nfs
       o: addr=${NAS_HOST},nolock,noresvport,vers=2
-      device: :/volume1/docker/backups
+      device: :/volume4/docker/backups
 
 
 networks:
