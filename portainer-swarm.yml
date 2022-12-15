@@ -92,14 +92,14 @@ services:
       - default
     command: >-
       sh -c 'LOG=/logs/portainer-backup-db-job.log;
-      date > $$LOG &&
-      wget -SO - http://tasks.healthchecks:8000/ping/da0556ba-739f-4f6e-afe0-2393c2537d58/start >> $$LOG 2>&1 &&
-      echo backing up db... >> $$LOG;
-      wget http://tasks.portainer:9000/api/backup --header "X-API-Key:$$PORTAINER_API_TOKEN" --post-data {} --content-disposition >> $$LOG 2>&1 &&
-      mv $$(find . -type f -name "portainer-backup_*" -print0 | xargs -0 ls -t | head -n 1) /backups/data/sqlite &&
-      ls -dt /backups/data/sqlite/* | grep portainer-backup_ | tail -n +3 | xargs rm -f -- >> $$LOG &&
-      echo done. >> $$LOG &&
-      wget -SO - http://tasks.healthchecks:8000/ping/da0556ba-739f-4f6e-afe0-2393c2537d58 >> $$LOG 2>&1'
+      date 2>&1 | tee $$LOG;
+      wget -SO - http://tasks.healthchecks:8000/ping/da0556ba-739f-4f6e-afe0-2393c2537d58/start 2>&1 | tee -a $$LOG;
+      echo "backing up db..." 2>&1 | tee -a $$LOG &&
+      wget http://tasks.portainer:9000/api/backup --header "X-API-Key:$$PORTAINER_API_TOKEN" --post-data {} --content-disposition 2>&1 | tee -a $$LOG &&
+      mv $$(find . -type f -name "portainer-backup_*" -print0 | xargs -0 ls -t | head -n 1) /backups/data/sqlite 2>&1 | tee -a $$LOG &&
+      ls -dt /backups/data/sqlite/* | grep portainer-backup_ | tail -n +3 | xargs rm -f -- 2>&1 | tee -a $$LOG &&
+      echo "done." 2>&1 | tee -a $$LOG;
+      wget -SO - http://tasks.healthchecks:8000/ping/da0556ba-739f-4f6e-afe0-2393c2537d58/$$? 2>&1 | tee -a $$LOG'
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer-stack_logs:/logs
